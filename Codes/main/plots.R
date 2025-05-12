@@ -291,6 +291,8 @@ for (sl in unique(df_to_plot$soil)) {
          final_plot, width = 14, height = 7, dpi = 300)
 }
 
+write.csv(df_to_plot, file = paste0(path_to_data, "figure_2_data.csv"), row.names = FALSE)
+
 ################
 # For AGU poster
 ################
@@ -602,139 +604,250 @@ index_names <- c("NDTI", "CAI", "SINDRI")
 
 
 
+# library(dplyr)
+# library(ggplot2)
+# library(cowplot)
+# library(ggpubr)
+# 
+# 
+# 
+# df <- df %>%
+#   mutate(crop = recode(crop,
+#                        "Wheat Norwest Duet" = "Wheat"))
+# # Initialize an empty list to store individual plots
+# plot_list <- list()
+# 
+# # Loop through each index_name and create individual plots
+# for (idx in index_names) {
+#   
+#   # Subset, arrange, and build intervals as before
+#   df_sub <- df %>%
+#     filter(index_name == idx) %>%
+#     arrange(crop, threshold)
+#   
+#   df_intervals <- df_sub %>%
+#     group_by(crop) %>%
+#     arrange(threshold, .by_group = TRUE) %>%
+#     mutate(
+#       xmin = boundary_index,
+#       xmax = lead(boundary_index),
+#       ymin = threshold,
+#       ymax = lead(threshold)
+#     ) %>%
+#     filter(!is.na(xmax), !is.na(ymax)) %>%
+#     ungroup()
+#   
+#   df_intervals_sub <- df_intervals %>%
+#     mutate(fr_band = paste0(ymin, "-", ymax)) %>%
+#     group_by(index_name, fr_band) %>%
+#     mutate(
+#       band_count = n(),
+#       band_rank  = row_number(),
+#       sub_ymin = ymin + (band_rank - 1) * (ymax - ymin) / band_count,
+#       sub_ymax = ymin + band_rank       * (ymax - ymin) / band_count
+#     ) %>%
+#     ungroup()
+#   
+#   df_intervals_sub <- df_intervals_sub %>%
+#     mutate(
+#       label_xmin = xmin - 0.03 * (xmax - xmin),   # 3% of bar width left
+#       label_xmax = xmax + 0.03 * (xmax - xmin)    # 3% of bar width right
+#     )
+#   # # Calculate the range of the x-axis for relative positioning
+#   # x_range <- range(na.omit(c(df_intervals_sub$xmin, df_intervals_sub$xmax)))
+#   # x_offset <- 0.01 * diff(x_range)  # 1% of the x-axis width as offset
+#   # 
+#   # Create the plot for the current index_name
+#   p <- ggplot(df_intervals_sub, 
+#               aes(xmin = xmin, xmax = xmax, 
+#                   ymin = sub_ymin, ymax = sub_ymax, 
+#                   fill = crop)) +
+#     geom_rect(alpha = 0.4, color = "black") +
+#     geom_text(
+#       aes(
+#         x = label_xmin,
+#         y = (sub_ymin + sub_ymax) / 2,
+#         label = round(xmin, 4)
+#       ),
+#       size = 4, 
+#       hjust = 1
+#     ) +
+#     geom_text(
+#       aes(
+#         x = label_xmax,
+#         y = (sub_ymin + sub_ymax) / 2,
+#         label = round(xmax, 4)
+#       ),
+#       size = 4,
+#       hjust = 0
+#     ) +
+#     geom_hline(yintercept = c(0.15, 0.3, 0.75, 1), color = "black", linetype = "dashed", size = 0.8) +
+#     scale_y_continuous(
+#       breaks = c(0, 0.15, 0.3, 0.75, 1),
+#       limits = c(0, 1)
+#     ) +
+#     scale_x_continuous(
+#       breaks = sort(unique(na.omit(c(df_intervals_sub$xmin, df_intervals_sub$xmax)))),
+#       limits = range(na.omit(c(df_intervals_sub$xmin, df_intervals_sub$xmax)))
+#     ) +
+#     scale_fill_manual(
+#       values = c("Canola" = "#15616d", "Garbanzo Beans" = "#fcca46",
+#                  "Peas" = "#ff7d00", "Wheat" = "#78290f")
+#     ) +
+#     labs(
+#       x = idx,
+#       y = expression("Fractional residue cover (" * f[r] * ")"),
+#       fill = ""
+#     ) +
+#     theme_minimal() +
+#     theme(
+#       panel.grid.minor.x = element_blank(),
+#       axis.text.x = element_blank(),
+#       panel.border = element_blank(),
+#       axis.line = element_line(color = "black"),
+#       legend.position = "bottom",  # Keep legend position for extraction
+#       
+#       
+#       # Manual text size control
+#       plot.title = element_text(size = 12, face = "bold"),
+#       axis.title.x = element_text(size = 12),
+#       axis.title.y = element_text(size = 12),
+#       axis.text = element_text(size = 12),
+#       legend.title = element_text(size = 12),
+#       legend.text = element_text(size = 12),
+#       strip.text = element_text(size = 12)  # For facet strip text if used
+#       
+#     )
+#   
+#   # Add the plot to the list
+#   plot_list[[idx]] <- p
+# }
+# 
+# # Use ggpubr::ggarrange() to arrange the plots and keep a single shared legend
+# final_plot <- ggarrange(
+#   plotlist = plot_list,
+#   nrow = 1,
+#   common.legend = TRUE,    # Ensure a single shared legend
+#   legend = "bottom"        # Place the legend at the bottom
+# )
+# 
+# # Print the final combined plot
+# print(final_plot)
+# 
+# # Save the combined plot
+# ggsave(paste0(path_to_plots, 'index_ranges/fresh/index_range_fresh.png'),
+#        final_plot, width = 15, height = 6, dpi = 300)
+
+
+
+
+
+
+
+
+
+
+
 library(dplyr)
 library(ggplot2)
-library(cowplot)
-library(ggpubr)
+library(tidyr)
 
+# 1) Recode & reorder
+df2 <- df %>%
+  mutate(
+    crop       = recode(crop, "Wheat Norwest Duet" = "Wheat"),
+    index_name = factor(index_name, levels = c("NDTI", "CAI", "SINDRI"))
+  )
 
+# 2) Build the intervals
+df_intervals <- df2 %>%
+  group_by(index_name, crop) %>%
+  arrange(threshold, .by_group = TRUE) %>%
+  mutate(
+    xmin    = boundary_index,
+    xmax    = lead(boundary_index),
+    fr_band = paste0(threshold, "-", lead(threshold))
+  ) %>%
+  filter(!is.na(xmax), !is.na(fr_band)) %>%
+  ungroup() %>%
+  mutate(fr_band = factor(fr_band,
+                          levels = c("0-0.15", "0.15-0.3", "0.3-0.75", "0.75-1")))
 
-df <- df %>%
-  mutate(crop = recode(crop,
-                       "Wheat Norwest Duet" = "Wheat"))
-# Initialize an empty list to store individual plots
-plot_list <- list()
-
-# Loop through each index_name and create individual plots
-for (idx in index_names) {
-  
-  # Subset, arrange, and build intervals as before
-  df_sub <- df %>%
-    filter(index_name == idx) %>%
-    arrange(crop, threshold)
-  
-  df_intervals <- df_sub %>%
-    group_by(crop) %>%
-    arrange(threshold, .by_group = TRUE) %>%
-    mutate(
-      xmin = boundary_index,
-      xmax = lead(boundary_index),
-      ymin = threshold,
-      ymax = lead(threshold)
-    ) %>%
-    filter(!is.na(xmax), !is.na(ymax)) %>%
-    ungroup()
-  
-  df_intervals_sub <- df_intervals %>%
-    mutate(fr_band = paste0(ymin, "-", ymax)) %>%
-    group_by(index_name, fr_band) %>%
-    mutate(
-      band_count = n(),
-      band_rank  = row_number(),
-      sub_ymin = ymin + (band_rank - 1) * (ymax - ymin) / band_count,
-      sub_ymax = ymin + band_rank       * (ymax - ymin) / band_count
-    ) %>%
-    ungroup()
-  
-  df_intervals_sub <- df_intervals_sub %>%
-    mutate(
-      label_xmin = xmin - 0.03 * (xmax - xmin),   # 3% of bar width left
-      label_xmax = xmax + 0.03 * (xmax - xmin)    # 3% of bar width right
-    )
-  # # Calculate the range of the x-axis for relative positioning
-  # x_range <- range(na.omit(c(df_intervals_sub$xmin, df_intervals_sub$xmax)))
-  # x_offset <- 0.01 * diff(x_range)  # 1% of the x-axis width as offset
-  # 
-  # Create the plot for the current index_name
-  p <- ggplot(df_intervals_sub, 
-              aes(xmin = xmin, xmax = xmax, 
-                  ymin = sub_ymin, ymax = sub_ymax, 
-                  fill = crop)) +
-    geom_rect(alpha = 0.4, color = "black") +
-    geom_text(
-      aes(
-        x = label_xmin,
-        y = (sub_ymin + sub_ymax) / 2,
-        label = round(xmin, 4)
-      ),
-      size = 4, 
-      hjust = 1
-    ) +
-    geom_text(
-      aes(
-        x = label_xmax,
-        y = (sub_ymin + sub_ymax) / 2,
-        label = round(xmax, 4)
-      ),
-      size = 4,
-      hjust = 0
-    ) +
-    geom_hline(yintercept = c(0.15, 0.3, 0.75, 1), color = "black", linetype = "dashed", size = 0.8) +
-    scale_y_continuous(
-      breaks = c(0, 0.15, 0.3, 0.75, 1),
-      limits = c(0, 1)
-    ) +
-    scale_x_continuous(
-      breaks = sort(unique(na.omit(c(df_intervals_sub$xmin, df_intervals_sub$xmax)))),
-      limits = range(na.omit(c(df_intervals_sub$xmin, df_intervals_sub$xmax)))
-    ) +
-    scale_fill_manual(
-      values = c("Canola" = "#15616d", "Garbanzo Beans" = "#fcca46",
-                 "Peas" = "#ff7d00", "Wheat" = "#78290f")
-    ) +
-    labs(
-      x = idx,
-      y = expression("Fractional residue cover (" * f[r] * ")"),
-      fill = ""
-    ) +
-    theme_minimal() +
-    theme(
-      panel.grid.minor.x = element_blank(),
-      axis.text.x = element_blank(),
-      panel.border = element_blank(),
-      axis.line = element_line(color = "black"),
-      legend.position = "bottom",  # Keep legend position for extraction
-      
-      
-      # Manual text size control
-      plot.title = element_text(size = 12, face = "bold"),
-      axis.title.x = element_text(size = 12),
-      axis.title.y = element_text(size = 12),
-      axis.text = element_text(size = 12),
-      legend.title = element_text(size = 12),
-      legend.text = element_text(size = 12),
-      strip.text = element_text(size = 12)  # For facet strip text if used
-      
-    )
-  
-  # Add the plot to the list
-  plot_list[[idx]] <- p
-}
-
-# Use ggpubr::ggarrange() to arrange the plots and keep a single shared legend
-final_plot <- ggarrange(
-  plotlist = plot_list,
-  nrow = 1,
-  common.legend = TRUE,    # Ensure a single shared legend
-  legend = "bottom"        # Place the legend at the bottom
+# 3) Define per-index offset percentages & direction
+#    direction = +1 pushes to the right; -1 pushes to the left
+offset_lookup <- tibble(
+  index_name = factor(c("NDTI", "CAI", "SINDRI"),
+                      levels = c("NDTI", "CAI", "SINDRI")),
+  offset_pct  = c(0.03,    0.03,    0.03),   # tweak these
+  direction   = c(+1,      +1,      +1)      # NDTI → left, CAI/SINDRI → right
 )
 
-# Print the final combined plot
-print(final_plot)
+# 4) Build one label per unique boundary & compute its final x‐position
+df_labels <- df_intervals %>%
+  select(index_name, crop, xmin, xmax) %>%
+  pivot_longer(cols = c(xmin, xmax), values_to = "boundary_index") %>%
+  distinct(index_name, crop, boundary_index) %>%
+  left_join(offset_lookup, by = "index_name") %>%
+  group_by(index_name, crop) %>%
+  mutate(
+    span   = max(boundary_index) - min(boundary_index),
+    offset = span * offset_pct * direction,
+    x_plot = boundary_index + offset,
+    lab    = round(boundary_index, 3)
+  ) %>%
+  ungroup()
 
+# 5) Plot
+p <- ggplot(df_intervals,
+       aes(x      = (xmin + xmax) / 2,
+           y      = crop,
+           width  = xmax - xmin,
+           height = 0.8,
+           fill   = fr_band)) +
+  geom_tile(color = "black") +
+  geom_text(
+    data        = df_labels,
+    aes(x = x_plot, y = crop, label = lab),
+    inherit.aes = FALSE,
+    angle       = 90,
+    hjust       = 0.5,
+    vjust       = 0.5,
+    size        = 4
+  ) +
+  facet_wrap(~ index_name, scales = "free_x", nrow = 1) +
+  scale_fill_manual(values = c(
+    "0-0.15"   = "#dd6e42",
+    "0.15-0.3" = "#e8dab2",
+    "0.3-0.75" = "#4f6d7a",
+    "0.75-1"   = "#c0d6df"
+  )) +
+  labs(
+    x    = "Index value",
+    y    = "",
+    fill = "FR Category"
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    # remove the light grid under x
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    
+    # draw a black line for every panel's x‐axis
+    axis.line.x  = element_line(color = "black"),
+    axis.ticks.x = element_line(color = "black"),
+    
+    # make the tick labels themselves black
+    axis.text.x  = element_text(color = "black", angle = 45, hjust = 1),
+    
+    # (optional) draw a full border around each panel
+    panel.border = element_rect(color = "black", fill = NA, size = 0.5),
+    
+    strip.text   = element_text(face = "bold")
+  )
 # Save the combined plot
 ggsave(paste0(path_to_plots, 'index_ranges/fresh/index_range_fresh.png'),
-       final_plot, width = 15, height = 6, dpi = 300)
+       p, width = 15, height = 6, dpi = 300)
+
 
 
 ##############################################################################
@@ -1267,6 +1380,122 @@ print(final_plot)
 ggsave(paste0(path_to_plots, 'index_ranges/age/index_range_age.png'),
        final_plot, width = 15, height = 6, dpi = 300)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+
+# 2) Build the intervals
+df_intervals <- df %>%
+  group_by(index_name, crop) %>%
+  arrange(threshold, .by_group = TRUE) %>%
+  mutate(
+    xmin    = boundary_index,
+    xmax    = lead(boundary_index),
+    fr_band = paste0(threshold, "-", lead(threshold))
+  ) %>%
+  filter(!is.na(xmax), !is.na(fr_band)) %>%
+  ungroup() %>%
+  mutate(fr_band = factor(fr_band,
+                          levels = c("0-0.15", "0.15-0.3", "0.3-0.75", "0.75-1")))
+df_intervals <- df_intervals %>%
+  mutate(
+    index_name = factor(index_name,
+                        levels = c("NDTI", "CAI", "SINDRI"))
+  )
+# 3) Define per-index offset percentages & direction
+#    direction = +1 pushes to the right; -1 pushes to the left
+offset_lookup <- tibble(
+  index_name = factor(c("NDTI", "CAI", "SINDRI"),
+                      levels = c("NDTI", "CAI", "SINDRI")),
+  offset_pct  = c(0.037,    0.037,    0.037),   # tweak these
+  direction   = c(+1,      +1,      +1)      # NDTI → left, CAI/SINDRI → right
+)
+
+# 4) Build one label per unique boundary & compute its final x‐position
+df_labels <- df_intervals %>%
+  select(index_name, crop, xmin, xmax) %>%
+  pivot_longer(cols = c(xmin, xmax), values_to = "boundary_index") %>%
+  distinct(index_name, crop, boundary_index) %>%
+  left_join(offset_lookup, by = "index_name") %>%
+  group_by(index_name, crop) %>%
+  mutate(
+    span   = max(boundary_index) - min(boundary_index),
+    offset = span * offset_pct * direction,
+    x_plot = boundary_index + offset,
+    lab    = round(boundary_index, 3)
+  ) %>%
+  ungroup()
+
+# 5) Plot
+p <- ggplot(df_intervals,
+            aes(x      = (xmin + xmax) / 2,
+                y      = crop,
+                width  = xmax - xmin,
+                height = 0.8,
+                fill   = fr_band)) +
+  geom_tile(color = "black") +
+  geom_text(
+    data        = df_labels,
+    aes(x = x_plot, y = crop, label = lab),
+    inherit.aes = FALSE,
+    angle       = 90,
+    hjust       = 0.5,
+    vjust       = 0.5,
+    size        = 4
+  ) +
+  facet_wrap(~ index_name, scales = "free_x", nrow = 1) +
+  scale_fill_manual(values = c(
+    "0-0.15"   = "#dd6e42",
+    "0.15-0.3" = "#e8dab2",
+    "0.3-0.75" = "#4f6d7a",
+    "0.75-1"   = "#c0d6df"
+  )) +
+  labs(
+    x    = "Index value",
+    y    = "",
+    fill = expression(paste(f[r], " category"))
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    # remove the light grid under x
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    
+    # draw a black line for every panel's x‐axis
+    axis.line.x  = element_line(color = "black"),
+    axis.ticks.x = element_line(color = "black"),
+    
+    # make the tick labels themselves black
+    axis.text.x  = element_text(color = "black", angle = 45, hjust = 1),
+    
+    # (optional) draw a full border around each panel
+    panel.border = element_rect(color = "black", fill = NA, size = 0.5),
+    
+    strip.text   = element_text(face = "bold")
+  )
+
+print(p)
+# Save the combined plot
+ggsave(paste0(path_to_plots, 'index_ranges/age/index_range_age.png'),
+       p, width = 15, height = 6, dpi = 300)
+
+
 ##############################################################################
 ##############################################################################
 ##############################################################################
@@ -1793,6 +2022,129 @@ ggsave(paste0(path_to_plots, 'index_ranges/soil/index_range_soil.png'),
        final_plot, width = 15, height = 6, dpi = 300)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+
+# 2) Build the intervals
+df_intervals <- df %>%
+  group_by(index_name, soil) %>%
+  arrange(threshold, .by_group = TRUE) %>%
+  mutate(
+    xmin    = boundary_index,
+    xmax    = lead(boundary_index),
+    fr_band = paste0(threshold, "-", lead(threshold))
+  ) %>%
+  filter(!is.na(xmax), !is.na(fr_band)) %>%
+  ungroup() %>%
+  mutate(fr_band = factor(fr_band,
+                          levels = c("0-0.15", "0.15-0.3", "0.3-0.75", "0.75-1")))
+
+df_intervals <- df_intervals %>%
+  mutate(
+    index_name = factor(index_name,
+                        levels = c("NDTI", "CAI", "SINDRI"))
+  )
+
+# 3) Define per-index offset percentages & direction
+#    direction = +1 pushes to the right; -1 pushes to the left
+offset_lookup <- tibble(
+  index_name = factor(c("NDTI", "CAI", "SINDRI"),
+                      levels = c("NDTI", "CAI", "SINDRI")),
+  offset_pct  = c(0.037,    0.037,    0.037),   # tweak these
+  direction   = c(+1,      +1,      +1)      # NDTI → left, CAI/SINDRI → right
+)
+
+# 4) Build one label per unique boundary & compute its final x‐position
+df_labels <- df_intervals %>%
+  select(index_name, soil, xmin, xmax) %>%
+  pivot_longer(cols = c(xmin, xmax), values_to = "boundary_index") %>%
+  distinct(index_name, soil, boundary_index) %>%
+  left_join(offset_lookup, by = "index_name") %>%
+  group_by(index_name, soil) %>%
+  mutate(
+    span   = max(boundary_index) - min(boundary_index),
+    offset = span * offset_pct * direction,
+    x_plot = boundary_index + offset,
+    lab    = round(boundary_index, 3)
+  ) %>%
+  ungroup()
+
+# 5) Plot
+p <- ggplot(df_intervals,
+            aes(x      = (xmin + xmax) / 2,
+                y      = soil,
+                width  = xmax - xmin,
+                height = 0.8,
+                fill   = fr_band)) +
+  geom_tile(color = "black") +
+  geom_text(
+    data        = df_labels,
+    aes(x = x_plot, y = soil, label = lab),
+    inherit.aes = FALSE,
+    angle       = 90,
+    hjust       = 0.5,
+    vjust       = 0.5,
+    size        = 2
+  ) +
+  facet_wrap(~ index_name, scales = "free_x", nrow = 1) +
+  scale_fill_manual(values = c(
+    "0-0.15"   = "#dd6e42",
+    "0.15-0.3" = "#e8dab2",
+    "0.3-0.75" = "#4f6d7a",
+    "0.75-1"   = "#c0d6df"
+  )) +
+  labs(
+    x    = "Index value",
+    y    = "",
+    fill = expression(paste(f[r], " category"))
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    # remove the light grid under x
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    
+    # draw a black line for every panel's x‐axis
+    axis.line.x  = element_line(color = "black"),
+    axis.ticks.x = element_line(color = "black"),
+    
+    # make the tick labels themselves black
+    axis.text.x  = element_text(color = "black", angle = 45, hjust = 1),
+    
+    # (optional) draw a full border around each panel
+    panel.border = element_rect(color = "black", fill = NA, size = 0.5),
+    
+    strip.text   = element_text(face = "bold")
+  )
+
+print(p)
+# Save the combined plot
+ggsave(paste0(path_to_plots, 'index_ranges/soil/index_range_soil.png'),
+       p, width = 15, height = 6, dpi = 300)
+
+
 ##############################################################################
 ##############################################################################
 ##############################################################################
@@ -2307,6 +2659,14 @@ library(cowplot)
 library(dplyr)
 
 df_to_plot$fr_range_4groups <- paste0(df_to_plot$fr_range_4groups, "%")
+
+# Assuming your dataframe is named df
+df_to_plot <- df_to_plot %>%
+  group_by(index_name, crop, fr_range_4groups, RWC) %>%
+  filter(mae == min(mae)) %>%
+  ungroup()
+
+
 for (sl in unique(df_to_plot$soil)) {
   filtered <- df_to_plot %>%
     filter(soil == sl)
