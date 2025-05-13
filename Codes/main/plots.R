@@ -10,18 +10,18 @@ library(stringr)
 library(ggpubr)
 
 
-path_to_data <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                       'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
-                       'Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
-# path_to_data <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/',
-#                        'Soil_Residue_Spectroscopy/Data/00/')
+# path_to_data <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
+#                        'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
+#                        'Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
+path_to_data <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/',
+                       'Soil_Residue_Spectroscopy/Data/00/')
 
 
-path_to_plots <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                        'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
-                        'Ph.D/Projects/Soil_Residue_Spectroscopy/Plots/final_plots/')
-# path_to_plots <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/',
-#                         'Soil_Residue_Spectroscopy/Plots/final_plots/')
+# path_to_plots <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
+#                         'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
+#                         'Ph.D/Projects/Soil_Residue_Spectroscopy/Plots/final_plots/')
+path_to_plots <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/',
+                        'Soil_Residue_Spectroscopy/Plots/final_plots/')
 
 # Get a list of all .csv files in the directory
 csv_files <- list.files(path = paste0(path_to_data, "crp_sl_index_fr/"), pattern = "\\.csv$", full.names = FALSE)
@@ -412,7 +412,6 @@ for (sl in unique(df_to_plot$soil)) {
          final_plot, width = 14, height = 7, dpi = 300)
 }
 
-
 ##############################################################################
 #               Plot index range vs fr bars
 ################
@@ -747,7 +746,6 @@ index_names <- c("NDTI", "CAI", "SINDRI")
 
 
 
-
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -774,15 +772,14 @@ df_intervals <- df2 %>%
                           levels = c("0-0.15", "0.15-0.3", "0.3-0.75", "0.75-1")))
 
 # 3) Define per-index offset percentages & direction
-#    direction = +1 pushes to the right; -1 pushes to the left
 offset_lookup <- tibble(
   index_name = factor(c("NDTI", "CAI", "SINDRI"),
                       levels = c("NDTI", "CAI", "SINDRI")),
-  offset_pct  = c(0.03,    0.03,    0.03),   # tweak these
-  direction   = c(+1,      +1,      +1)      # NDTI → left, CAI/SINDRI → right
+  offset_pct  = c(0.03, 0.03, 0.03),
+  direction   = c(+1,    +1,    +1)
 )
 
-# 4) Build one label per unique boundary & compute its final x‐position
+# 4) Build one label per unique boundary & compute its final x-position
 df_labels <- df_intervals %>%
   select(index_name, crop, xmin, xmax) %>%
   pivot_longer(cols = c(xmin, xmax), values_to = "boundary_index") %>%
@@ -797,14 +794,53 @@ df_labels <- df_intervals %>%
   ) %>%
   ungroup()
 
-# 5) Plot
-p <- ggplot(df_intervals,
-       aes(x      = (xmin + xmax) / 2,
-           y      = crop,
-           width  = xmax - xmin,
-           height = 0.8,
-           fill   = fr_band)) +
-  geom_tile(color = "black") +
+# 5) Identify “uncertain” spans (where ≥2 crops disagree)
+uncertain <- df_intervals %>%
+  group_by(index_name) %>%
+  summarize(boundaries = list(sort(unique(c(xmin, xmax))))) %>%
+  unnest(boundaries) %>%
+  group_by(index_name) %>%
+  mutate(
+    start = boundaries,
+    end   = lead(boundaries)
+  ) %>%
+  filter(!is.na(end)) %>%
+  rowwise() %>%
+  mutate(
+    this_idx = index_name,
+    n_bands  = df_intervals %>%
+      filter(index_name == this_idx,
+             xmin <= start, xmax >= end) %>%
+      pull(fr_band) %>% n_distinct()
+  ) %>%
+  ungroup() %>%
+  filter(n_bands > 1) %>%
+  select(index_name, start, end)
+
+# 6) Plot with horizontal “tick” segments at bottom of each facet
+p <- ggplot() +
+  # a red horizontal tick for each uncertain span
+  geom_segment(
+    data        = uncertain,
+    inherit.aes = FALSE,
+    aes(x = start, xend = end, group = index_name),
+    y    = -Inf, yend = -Inf,
+    color = "red",
+    size  = 10
+  ) +
+  # the FR-category tiles
+  geom_tile(
+    data = df_intervals,
+    aes(
+      x      = (xmin + xmax) / 2,
+      y      = crop,
+      width  = xmax - xmin,
+      height = 0.8,
+      fill   = fr_band
+    ),
+    color = "black"
+  ) +
+  # the boundary labels
   geom_text(
     data        = df_labels,
     aes(x = x_plot, y = crop, label = lab),
@@ -812,7 +848,7 @@ p <- ggplot(df_intervals,
     angle       = 90,
     hjust       = 0.5,
     vjust       = 0.5,
-    size        = 4
+    size        = 6
   ) +
   facet_wrap(~ index_name, scales = "free_x", nrow = 1) +
   scale_fill_manual(values = c(
@@ -824,29 +860,53 @@ p <- ggplot(df_intervals,
   labs(
     x    = "Index value",
     y    = "",
-    fill = "FR Category"
+    fill = expression("" * f[r] * " range")
   ) +
-  theme_minimal(base_size = 16) +
+  theme_minimal(base_size = 20) +
   theme(
-    # remove the light grid under x
     panel.grid.major.x = element_blank(),
     panel.grid.minor   = element_blank(),
+    axis.line.x        = element_line(color = "black"),
+    axis.ticks.x       = element_line(color = "black"),
+    axis.text.x        = element_text(color = "black", angle = 45, hjust = 1),
+    panel.border       = element_rect(color = "black", fill = NA, size = 0.5),
+    strip.text         = element_text(face = "bold"),
+    axis.text.y  = element_text(color = "black"),        # make y-labels black
+    axis.ticks.y = element_line(color = "black")
     
-    # draw a black line for every panel's x‐axis
-    axis.line.x  = element_line(color = "black"),
-    axis.ticks.x = element_line(color = "black"),
-    
-    # make the tick labels themselves black
-    axis.text.x  = element_text(color = "black", angle = 45, hjust = 1),
-    
-    # (optional) draw a full border around each panel
-    panel.border = element_rect(color = "black", fill = NA, size = 0.5),
-    
-    strip.text   = element_text(face = "bold")
   )
-# Save the combined plot
+
+print(p)
 ggsave(paste0(path_to_plots, 'index_ranges/fresh/index_range_fresh.png'),
        p, width = 15, height = 6, dpi = 300)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1496,6 +1556,186 @@ ggsave(paste0(path_to_plots, 'index_ranges/age/index_range_age.png'),
        p, width = 15, height = 6, dpi = 300)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# 1) Build the intervals
+df_intervals <- df %>%
+  group_by(index_name, crop) %>%
+  arrange(threshold, .by_group = TRUE) %>%
+  mutate(
+    xmin    = boundary_index,
+    xmax    = lead(boundary_index),
+    fr_band = paste0(threshold, "-", lead(threshold))
+  ) %>%
+  filter(!is.na(xmax), !is.na(fr_band)) %>%
+  ungroup() %>%
+  mutate(
+    fr_band    = factor(fr_band, levels = c("0-0.15", "0.15-0.3", "0.3-0.75", "0.75-1")),
+    index_name = factor(index_name, levels = c("NDTI", "CAI", "SINDRI"))
+  )
+
+# 2) Define per-index offset percentages & direction
+offset_lookup <- tibble(
+  index_name = factor(c("NDTI", "CAI", "SINDRI"),
+                      levels = c("NDTI", "CAI", "SINDRI")),
+  offset_pct  = c(0.037, 0.037, 0.037),
+  direction   = c(+1,     +1,     +1)
+)
+
+# 3) Build one label per unique boundary & compute its final x‐position
+df_labels <- df_intervals %>%
+  select(index_name, crop, xmin, xmax) %>%
+  pivot_longer(cols = c(xmin, xmax), values_to = "boundary_index") %>%
+  distinct(index_name, crop, boundary_index) %>%
+  left_join(offset_lookup, by = "index_name") %>%
+  group_by(index_name, crop) %>%
+  mutate(
+    span   = max(boundary_index) - min(boundary_index),
+    offset = span * offset_pct * direction,
+    x_plot = boundary_index + offset,
+    lab    = round(boundary_index, 3)
+  ) %>%
+  ungroup()
+
+multi_band_cats <- df_intervals %>%
+  group_by(index_name, crop) %>%
+  summarize(n_bands = n_distinct(fr_band), .groups="drop") %>%
+  filter(n_bands > 1)
+
+
+# 4) Identify truly “uncertain” spans by explicit band‐comparison
+library(purrr)
+
+uncertain <- df_intervals %>%
+  group_by(index_name) %>%
+  do({
+    d    <- .
+    # collect all unique break-points
+    bnds <- sort(unique(c(d$xmin, d$xmax)))
+    # build start/end for each adjacent slice
+    segs <- tibble(
+      start = head(bnds, -1),
+      end   = tail(bnds, -1)
+    )
+    # for each slice, see how many different fr_bands cover it
+    segs <- segs %>%
+      rowwise() %>%
+      mutate(
+        bands = list(
+          d %>%
+            filter(xmin <= start, xmax >= end) %>%
+            pull(fr_band)
+        ),
+        n_distinct = length(unique(bands))
+      ) %>%
+      ungroup() %>%
+      filter(n_distinct > 1) %>%
+      select(start, end)
+    # bring back the index_name
+    segs
+  }) %>%
+  ungroup()
+
+# And then your geom_segment is unchanged:
+geom_segment(
+  data        = uncertain,
+  inherit.aes = FALSE,
+  aes(x = start, xend = end, group = index_name),
+  y    = -Inf, yend = -Inf,
+  color = "red",
+  size  = 10
+)
+
+# 5) Plot with red ticks for uncertain spans
+p <- ggplot() +
+  # red horizontal tick for each uncertain span
+  geom_segment(
+    data        = uncertain,
+    inherit.aes = FALSE,
+    aes(x = start, xend = end, group = index_name),
+    y    = -Inf, yend = -Inf,
+    color = "red",
+    size  = 10
+  ) +
+  # the FR‐category tiles
+  geom_tile(
+    data  = df_intervals,
+    aes(
+      x      = (xmin + xmax) / 2,
+      y      = crop,
+      width  = xmax - xmin,
+      height = 0.8,
+      fill   = fr_band
+    ),
+    color = "black"
+  ) +
+  # the boundary labels
+  geom_text(
+    data        = df_labels,
+    aes(x = x_plot, y = crop, label = lab),
+    inherit.aes = FALSE,
+    angle       = 90,
+    hjust       = 0.5,
+    vjust       = 0.5,
+    size        = 5
+  ) +
+  facet_wrap(~ index_name, scales = "free_x", nrow = 1) +
+  scale_fill_manual(values = c(
+    "0-0.15"   = "#dd6e42",
+    "0.15-0.3" = "#e8dab2",
+    "0.3-0.75" = "#4f6d7a",
+    "0.75-1"   = "#c0d6df"
+  )) +
+  labs(
+    x    = "Index value",
+    y    = "",
+    fill = expression(paste(f[r], " category"))
+  ) +
+  theme_minimal(base_size = 20) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.line.x        = element_line(color = "black"),
+    axis.ticks.x       = element_line(color = "black"),
+    axis.text.x        = element_text(color = "black", angle = 45, hjust = 1),
+    panel.border       = element_rect(color = "black", fill = NA, size = 0.5),
+    strip.text         = element_text(face = "bold"),
+    axis.text.y  = element_text(color = "black"),        # make y-labels black
+    axis.ticks.y = element_line(color = "black")
+    
+  )
+
+print(p)
+ggsave(paste0(path_to_plots, 'index_ranges/age/index_range_age.png'),
+       p, width = 15, height = 6, dpi = 300)
+
 ##############################################################################
 ##############################################################################
 ##############################################################################
@@ -1817,6 +2057,173 @@ for (crp in unique(df_to_plot$crop)) {
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(dplyr)
+library(ggplot2)
+library(cowplot)   # for plot_grid()
+library(grid)      # unit()
+
+for (crp in unique(df_to_plot$crop)) {
+  
+  plots_list <- list()          # will hold one panel per index
+  idx_names  <- unique(df_to_plot$index_name)   # keep the order stable
+  
+  for (idx_ in idx_names) {
+    
+    # -----------------------------------------------------------------------
+    # 1. Filter data for this crop × index ----------------------------------
+    # -----------------------------------------------------------------------
+    filtered <- df_to_plot |>
+      filter(crop == crp, index_name == idx_)
+    
+    # -----------------------------------------------------------------------
+    # 2. Compute slope & intercept for every soil and attach a nice label ---
+    # -----------------------------------------------------------------------
+    slopes_intercepts <- filtered |>
+      group_by(soil) |>
+      summarise(
+        slope_value     = coef(lm(Fraction_Residue_Cover ~ index))[2],
+        intercept_value = coef(lm(Fraction_Residue_Cover ~ index))[1],
+        .groups = "drop"
+      )
+
+    filtered <- filtered |>
+      left_join(slopes_intercepts, by = "soil") |>
+      mutate(soil_label = paste0(round(slope_value, 1), ", ",
+                                 round(intercept_value, 1)))
+    
+    local_soil_labels <- filtered |>
+      distinct(soil, soil_label) |>
+      pull(soil_label, soil)     # named vector for the legend
+    
+    # -----------------------------------------------------------------------
+    # 3. Decide whether to hide y‑axis decorations (all but leftmost panel) -
+    # -----------------------------------------------------------------------
+    y_axis_theme <- if (idx_ == idx_names[1]) {
+      theme()                         # keep everything
+    } else {
+      theme(
+        axis.title.y = element_blank(),
+        axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y  = element_blank()
+      )
+    }
+    
+    # -----------------------------------------------------------------------
+    # 4. Hard‑code tick breaks per index ------------------------------------
+    # -----------------------------------------------------------------------
+    tick_breaks <- switch(
+      idx_,
+      "NDTI"   = c(-0.10, 0.00, 0.10),
+      "CAI"    = c( 0.00, 2.50, 5.00, 7.50, 10.00),
+      "SINDRI" = c( 0.000, 0.025, 0.050, 0.075)
+    )
+    tick_labels <- if (idx_ == "SINDRI") sprintf("%.3f", tick_breaks) else tick_breaks
+    
+    # -----------------------------------------------------------------------
+    # 5. Build the actual ggplot --------------------------------------------
+    # -----------------------------------------------------------------------
+    p <- ggplot(filtered,
+                aes(x = index,
+                    y = Fraction_Residue_Cover,
+                    colour = factor(soil))) +
+      geom_point(size = 4) +
+      
+      # custom X axis --------------------------------------------------------
+    scale_x_continuous(
+      name   = idx_,
+      breaks = tick_breaks,
+      labels = tick_labels,
+      limits = range(tick_breaks)      # comment this line out if you want
+    ) +
+      
+      # colour legend --------------------------------------------------------
+    scale_colour_manual(
+      name   = "slope, intercept",
+      values = custom_colors,
+      labels = local_soil_labels
+    ) +
+      
+      labs(y = "Fraction Residue Cover") +
+      theme_minimal(base_size = base_size) +
+      theme(
+        legend.position      = c(0.70, 0.00),
+        legend.justification = c(0, 0),
+        legend.key.size      = unit(0.01, "cm"),
+        legend.title         = element_text(size = base_size),
+        legend.text          = element_text(size = base_size),
+        axis.title           = element_text(size = base_size),
+        axis.text            = element_text(size = base_size),
+        axis.text.x          = element_text(angle = 45, hjust = 1, vjust = 1),
+        panel.background     = element_blank(),
+        plot.background      = element_blank(),
+        panel.grid           = element_blank(),
+        axis.ticks           = element_line(colour = "black"),
+        axis.line            = element_line(colour = "black"),
+        plot.margin          = unit(c(0.02, 0.02, 0.02, 0.02), "cm")
+      ) +
+      
+      # keep the panels square ----------------------------------------------
+    coord_fixed(ratio = diff(y_limits) / diff(x_limits)) +
+      y_axis_theme
+    
+    plots_list[[idx_]] <- p
+  }
+  
+  # -------------------------------------------------------------------------
+  # 6. Combine three index panels horizontally ------------------------------
+  # -------------------------------------------------------------------------
+  combined_plot <- plot_grid(
+    plotlist   = plots_list,
+    ncol       = 3,
+    align      = "hv",
+    rel_widths = rep(1, length(plots_list)),
+    rel_heights= rep(1, length(plots_list))
+  )
+  
+  # -------------------------------------------------------------------------
+  # 7. Add the global legend on the right -----------------------------------
+  # -------------------------------------------------------------------------
+  final_plot <- plot_grid(
+    combined_plot,
+    global_legend,
+    rel_widths = c(4, 0.6)
+  )
+  
+  # -------------------------------------------------------------------------
+  # 8. Write PNG to disk -----------------------------------------------------
+  # -------------------------------------------------------------------------
+  ggsave(
+    filename = file.path(
+      path_to_plots,
+      "fr_index_dry_fits/soil/agu",
+      paste0(crp, "_combined.png")
+    ),
+    plot   = final_plot,
+    width  = 15,
+    height = 6,
+    dpi    = 300
+  )
+}
 
 
 
@@ -2144,6 +2551,158 @@ print(p)
 ggsave(paste0(path_to_plots, 'index_ranges/soil/index_range_soil.png'),
        p, width = 15, height = 6, dpi = 300)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(purrr)
+
+# 1) Build the intervals
+df_intervals <- df %>%
+  group_by(index_name, soil) %>%
+  arrange(threshold, .by_group = TRUE) %>%
+  mutate(
+    xmin    = boundary_index,
+    xmax    = lead(boundary_index),
+    fr_band = paste0(threshold, "-", lead(threshold))
+  ) %>%
+  filter(!is.na(xmax), !is.na(fr_band)) %>%
+  ungroup() %>%
+  mutate(
+    fr_band    = factor(fr_band,
+                        levels = c("0-0.15", "0.15-0.3", "0.3-0.75", "0.75-1")),
+    index_name = factor(index_name,
+                        levels = c("NDTI", "CAI", "SINDRI"))
+  )
+
+# 2) Define per-index offset percentages & direction
+offset_lookup <- tibble(
+  index_name = factor(c("NDTI", "CAI", "SINDRI"),
+                      levels = c("NDTI", "CAI", "SINDRI")),
+  offset_pct  = c(0.037, 0.037, 0.037),
+  direction   = c(+1,     +1,     +1)
+)
+
+# 3) Build one label per unique boundary & compute its final x‐position
+df_labels <- df_intervals %>%
+  select(index_name, soil, xmin, xmax) %>%
+  pivot_longer(cols = c(xmin, xmax), values_to = "boundary_index") %>%
+  distinct(index_name, soil, boundary_index) %>%
+  left_join(offset_lookup, by = "index_name") %>%
+  group_by(index_name, soil) %>%
+  mutate(
+    span   = max(boundary_index) - min(boundary_index),
+    offset = span * offset_pct * direction,
+    x_plot = boundary_index + offset,
+    lab    = round(boundary_index, 3)
+  ) %>%
+  ungroup()
+
+# 4) Identify “uncertain” spans by explicit band‐comparison
+uncertain <- df_intervals %>%
+  group_by(index_name) %>%
+  do({
+    d    <- .
+    bnds <- sort(unique(c(d$xmin, d$xmax)))
+    segs <- tibble(
+      start = head(bnds, -1),
+      end   = tail(bnds, -1)
+    )
+    segs <- segs %>%
+      rowwise() %>%
+      mutate(
+        bands     = list(d %>% filter(xmin <= start, xmax >= end) %>% pull(fr_band)),
+        n_distinct = length(unique(bands))
+      ) %>%
+      ungroup() %>%
+      filter(n_distinct > 1) %>%
+      select(start, end)
+    segs
+  }) %>%
+  ungroup()
+
+# 5) Plot with red ticks for uncertain spans
+p <- ggplot() +
+  # red horizontal tick for each uncertain span
+  geom_segment(
+    data        = uncertain,
+    inherit.aes = FALSE,
+    aes(x = start, xend = end, group = index_name),
+    y    = -Inf, yend = -Inf,
+    color = "red",
+    size  = 10
+  ) +
+  # the FR‐category tiles
+  geom_tile(
+    data = df_intervals,
+    aes(
+      x      = (xmin + xmax) / 2,
+      y      = soil,
+      width  = xmax - xmin,
+      height = 0.8,
+      fill   = fr_band
+    ),
+    color = "black"
+  ) +
+  # the boundary labels
+  geom_text(
+    data = df_labels,
+    aes(x = x_plot, y = soil, label = lab),
+    inherit.aes = FALSE,
+    angle       = 90,
+    hjust       = 0.5,
+    vjust       = 0.5,
+    size        = 3.5
+  ) +
+  facet_wrap(~ index_name, scales = "free_x", nrow = 1) +
+  scale_fill_manual(values = c(
+    "0-0.15"   = "#dd6e42",
+    "0.15-0.3" = "#e8dab2",
+    "0.3-0.75" = "#4f6d7a",
+    "0.75-1"   = "#c0d6df"
+  )) +
+  labs(
+    x    = "Index value",
+    y    = "",
+    fill = expression(paste(f[r], " category"))
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.line.x        = element_line(color = "black"),
+    axis.ticks.x       = element_line(color = "black"),
+    axis.text.x        = element_text(color = "black", angle = 45, hjust = 1),
+    panel.border       = element_rect(color = "black", fill = NA, size = 0.5),
+    strip.text         = element_text(face = "bold"),
+    axis.text.y  = element_text(color = "black"),        # make y-labels black
+    axis.ticks.y = element_line(color = "black")
+  )
+
+print(p)
+ggsave(
+  paste0(path_to_plots, 'index_ranges/soil/index_range_soil.png'),
+  p, width = 15, height = 6, dpi = 300
+)
 
 ##############################################################################
 ##############################################################################
@@ -3097,3 +3656,18 @@ anova(model_reduced, model_interaction)
 
 summary(model_interaction)
 
+
+
+
+## install.packages("emmeans")   # run once if you don’t have it
+library(emmeans)
+
+## 1.  Get one slope (“trend”) per crop -----------------------------
+#   var = "index" tells emmeans we want the coefficient for index
+slopes <- emtrends(model_interaction,
+                   specs = ~ crop,        # one row per crop
+                   var   = "index")
+
+## 2.  Do *all‑pair* comparisons of those slopes -------------------
+pairwise_slopes  <- pairs(slopes, adjust = "tukey")   # Tukey‑HSD p‑value adjust
+pairwise_slopes
