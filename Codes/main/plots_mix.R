@@ -23,52 +23,27 @@ path_to_plots <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
 # path_to_plots <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/',
 #                         'Soil_Residue_Spectroscopy/Plots/final_plots/')
 
-# Get a list of all .csv files in the directory
-csv_files <- list.files(path = paste0(path_to_data, "crp_sl_index_fr/"), pattern = "\\.csv$", full.names = FALSE)
 
-# Remove the ".csv" extension from the file names
-csv_files <- sub("\\.csv$", "", csv_files)
+df <- read.csv(paste0(path_to_data, 
+                               "mixed_index_df.csv"),
+                        header = TRUE, row.names = NULL)
 
-# Extract characters after the second underscore
-csv_files <- sapply(strsplit(csv_files, "_"), function(x) paste(tail(x, -2), collapse = "_"))
+df <- df %>%
+  pivot_longer(
+    cols = `CAI`:`NDTI`,      # all spectral bands
+    names_to = "index_name",         # name of the new wavelength column
+    values_to = "index"     # name of the new reflectance value column
+  )
 
-NDTI_df <- data.frame()
-CAI_df <- data.frame()
-SINDRI_df <- data.frame()
-name <- unique(csv_files)[1]
-for (name in unique(csv_files)) {
-  
-  crop = unlist(strsplit(name, "_"))[1]
-  soil = unlist(strsplit(name, "_"))[2]
-  
-  NDTI_original <- read.csv(paste0(path_to_data, 'crp_sl_index_fr/', 'NDTI_Original_', name, '.csv'))
-  NDTI_original$crop <- crop
-  NDTI_original$soil <- soil
-  NDTI_original$mix <- name
-  NDTI_original$index_name <- "NDTI"
-  
-  NDTI_df <- rbind(NDTI_df, NDTI_original)
-  
-  CAI_original <- read.csv(paste0(path_to_data, 'crp_sl_index_fr/', 'CAI_Original_', name, '.csv'))
-  CAI_original$crop <- crop
-  CAI_original$soil <- soil
-  CAI_original$mix <- name
-  CAI_original$index_name <- "CAI"
-  
-  CAI_df <- rbind(CAI_df, CAI_original)
-  
-  SINDRI_original <- read.csv(paste0(path_to_data, 'crp_sl_index_fr/', 'SINDRI_Original_', name, '.csv'))
-  SINDRI_original$crop <- crop
-  SINDRI_original$soil <- soil
-  SINDRI_original$mix <- name
-  SINDRI_original$index_name <- "SINDRI"
-  
-  SINDRI_df <- rbind(SINDRI_df, SINDRI_original)
-}
+df <- df %>%
+  dplyr::rename(crop = Crop)
 
-df <- rbind(NDTI_df, CAI_df, SINDRI_df)
-df <- rbind(NDTI_df, CAI_df, SINDRI_df)
-df <- rbind(NDTI_df, CAI_df, SINDRI_df)
+df <- df %>%
+  dplyr::rename(soil = Soil)
+
+df <- df %>%
+  dplyr::rename(Fraction_Residue_Cover = Fraction)
+
 
 # Add fresh/weathered column 
 fresh <- c("Canola", "Garbanzo Beans", "Peas", "Wheat Norwest Duet")
@@ -83,15 +58,16 @@ df <- df %>%
 # Remove weathered wheat and weathered canola
 fresh_df <- df %>% dplyr::filter(crop %in% fresh)
 
-filtered_fresh <- fresh_df %>% dplyr::filter(index_name == "NDTI" & crop == "Canola"
-                                             & RWC == 0)
+filtered_fresh <- fresh_df %>% dplyr::filter(index_name == "NDTI" & crop == "Canola")
 
-# Filter the DataFrame for specific RWC values
-df <- df %>%
-  filter(RWC %in% c(0, 0.2, 0.4, 0.6, 0.8, 1))
+# # Filter the DataFrame for specific RWC values
+# df <- df %>%
+#   filter(RWC %in% c(0, 0.2, 0.4, 0.6, 0.8, 1))
+# 
+# # Filter for RWC = 0
+# dry_df <- df %>% dplyr::filter(RWC == 0)
 
-# Filter for RWC = 0
-dry_df <- df %>% dplyr::filter(RWC == 0)
+dry_df <- df
 
 # Filter for fresh crops
 df_to_plot <- dry_df %>% dplyr::filter(age == "fresh")
@@ -269,7 +245,7 @@ for (sl in unique(df_to_plot$soil)) {
             plot.title = element_blank(),
             strip.text = element_blank(),
             axis.text.x = element_text(size = base_size * 1.2, color = "black", angle = 45, hjust = 1),  # Smaller x-axis tick labels
-           axis.text.y = element_text(size = base_size * 1.2, color = "black"),  # Smaller y-axis tick labels
+            axis.text.y = element_text(size = base_size * 1.2, color = "black"),  # Smaller y-axis tick labels
             plot.margin = unit(c(0.02, 0.02, 0.02, 0.02), "cm")) +  # Ensure equal margins
       coord_fixed(ratio = diff(y_limits) / diff(x_limits)) +  # Ensure square plots
       y_axis_theme  # Apply the conditional y-axis theme
@@ -417,7 +393,6 @@ for (sl in unique(df_to_plot$soil)) {
 ################
 ################
 df_to_plot_a_soil <- df_to_plot %>% dplyr::filter(soil == "Athena") 
-df_to_plot_a_soil <- df_to_plot_a_soil %>% dplyr::filter(RWC == 0)
 
 ##############################################################################
 ##############################################################################
@@ -908,7 +883,7 @@ df_to_plot <- df_to_plot %>%
 
 custom_colors <- c("Fresh canola" = "#fe7f2d", "Weathered canola" = "#fe7f2d",
                    "Fresh wheat" = "#619b8a", "Weathered wheat" = "#619b8a"
-                   )  
+)  
 # Define the shapes: default shapes for normal crops, different shapes for weathered crops
 custom_shapes <- c("Fresh canola" = 16, "Weathered canola" = 17, 
                    "Fresh wheat" = 16, "Weathered wheat" = 17)
@@ -1623,8 +1598,8 @@ write.csv(uncertain, file = paste0(path_to_plots, "uncertain_age.csv"), row.name
 ###########################
 # Plot fr ~ index across soils
 ###########################
-# Filter for RWC = 0
-dry_df <- df %>% dplyr::filter(RWC == 0)
+
+dry_df <- df 
 df_to_plot <- dry_df
 custom_colors <- c("Athena" = "#582f0e", "Bagdad" = "#7f4f24", "Benwy"= "#936639",
                    "Broadax"= "#a68a64", "Endicott"= "#b6ad90", "Lance"= "#c2c5aa",
@@ -1648,7 +1623,7 @@ for (crp in unique(df_to_plot$crop)) {
       left_join(slopes_intercepts, by = "soil") %>%
       mutate(soil_label = paste0(
         soil, " (", round(slope_value, 2), ",", round(intercept_value, 2) ,")")
-        )
+      )
     
     # Dynamically create the labels for the legend
     local_soil_labels <- filtered %>%
@@ -1737,23 +1712,23 @@ for (crp in unique(df_to_plot$crop)) {
       labs(x = idx_, y = "Fraction Residue Cover") + # Labels for axes
       theme_minimal() + # Minimal theme for cleaner look
       theme(
-            legend.position = c(1, -0.02),
-            legend.justification = c(0, 0),
-            legend.key.size = unit(0.01, "cm"),
-            legend.title = element_text(size = base_size * 0.6, margin = margin(b = 0)),
-            legend.text = element_text(size = base_size * 0.6, margin = margin(b = 0)),
-            axis.title = element_text(size = base_size * 0.7),
-            axis.text = element_text(size = base_size * 0.8, color = "black"),
-            panel.background = element_rect(fill = "white", colour = "white"),
-            plot.background = element_rect(fill = "white", colour = "white"),
-            panel.grid = element_blank(),
-            axis.ticks = element_line(color = "black"),
-            axis.line = element_line(color = "black"),
-            plot.title = element_blank(),
-            strip.text = element_blank(),
-            axis.text.x = element_text(size = base_size * 0.7, color = "black", angle = 45, hjust = 1, vjust = 1),  # Smaller x-axis tick labels
-            axis.text.y = element_text(size = base_size * 0.7, color = "black"),  # Smaller y-axis tick labels
-            plot.margin = unit(c(0.5, 1.5, 0.5, 0.5), "cm")) +  # Ensure equal margins
+        legend.position = c(1, -0.02),
+        legend.justification = c(0, 0),
+        legend.key.size = unit(0.01, "cm"),
+        legend.title = element_text(size = base_size * 0.6, margin = margin(b = 0)),
+        legend.text = element_text(size = base_size * 0.6, margin = margin(b = 0)),
+        axis.title = element_text(size = base_size * 0.7),
+        axis.text = element_text(size = base_size * 0.8, color = "black"),
+        panel.background = element_rect(fill = "white", colour = "white"),
+        plot.background = element_rect(fill = "white", colour = "white"),
+        panel.grid = element_blank(),
+        axis.ticks = element_line(color = "black"),
+        axis.line = element_line(color = "black"),
+        plot.title = element_blank(),
+        strip.text = element_blank(),
+        axis.text.x = element_text(size = base_size * 0.7, color = "black", angle = 45, hjust = 1, vjust = 1),  # Smaller x-axis tick labels
+        axis.text.y = element_text(size = base_size * 0.7, color = "black"),  # Smaller y-axis tick labels
+        plot.margin = unit(c(0.5, 1.5, 0.5, 0.5), "cm")) +  # Ensure equal margins
       coord_fixed(ratio = diff(y_limits) / diff(x_limits)) +  # Ensure square plots
       y_axis_theme  # Apply the conditional y-axis theme
     # Store the plot in the list
@@ -1911,7 +1886,7 @@ for (crp in unique(df_to_plot$crop)) {
   final_plot <- plot_grid(combined_plot, global_legend, rel_widths = c(4, 1))
   
   print(final_plot)
-
+  
   
   # Save the plot with proper margins and DPI
   ggsave(paste0(path_to_plots, 'fr_index_dry_fits/soil/agu/', crp, "_", "combined", '.png'), 
@@ -1932,7 +1907,7 @@ for (crp in unique(df_to_plot$crop)) {
 ##############################################################################
 ##############################################################################
 
-dry_df <- df %>% dplyr::filter(RWC == 0)
+# dry_df <- df %>% dplyr::filter(RWC == 0)
 df_to_plot <- dry_df
 # custom_colors <- c("Athena" = "#582f0e", "Bagdad" = "#7f4f24", "Benwy"= "#936639",
 #                    "Broadax"= "#a68a64", "Endicott"= "#b6ad90", "Lance"= "#c2c5aa",
@@ -3056,9 +3031,9 @@ ggsave(
 # Create the fr_range column
 results_fr <- results_fr %>%
   mutate(fr_range_4groups = cut(act_fr,
-                           breaks = c(0, 0.15, 0.3, 0.75, 1),
-                           labels = c("0-0.15", "0.15-0.3", "0.3-0.75", "0.75-1"),
-                           include.lowest = TRUE))
+                                breaks = c(0, 0.15, 0.3, 0.75, 1),
+                                labels = c("0-0.15", "0.15-0.3", "0.3-0.75", "0.75-1"),
+                                include.lowest = TRUE))
 
 # fr_table_4groups <- results_fr %>% 
 #   group_by(index_name, RWC, crop, fr_range_4groups) %>% 
@@ -3547,7 +3522,7 @@ error_summary <- results_fr %>%
 custom_colors <- c(
   "Canola" = "#fe7f2d", "Weathered Canola" = "#fe7f2d",
   "Wheat Norwest Duet" = "#619b8a", "Weathered Wheat" = "#619b8a"
-  )  
+)  
 
 # Define the shapes: default shapes for normal crops, different shapes for weathered crops
 custom_shapes <- c("Canola" = 16, "Weathered Canola" = 17, 
@@ -3699,13 +3674,13 @@ for (rwc_value in unique_rwc_values) {
 ############   statistical test
 ############
 
- 
+
 df_to_plot$crop <- factor(df_to_plot$crop)
 
 df_to_plot$crop <- relevel(df_to_plot$crop, ref = "Wheat Norwest Duet")
 
 df_to_plot_ <- df_to_plot %>% dplyr::filter(RWC == 0)
-  
+
 write.csv(df_to_plot, paste0(path_to_plots, "df_crop_statTest.csv"), row.names = FALSE)
 
 # Fit the linear model with interaction
