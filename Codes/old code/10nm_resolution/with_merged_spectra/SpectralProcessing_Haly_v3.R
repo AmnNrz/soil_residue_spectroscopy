@@ -14,7 +14,8 @@ library(reshape)
 
 ## Reading spectral reflectance of crop residues
 #setwd("E:/Spectrometry/Results/")
-setwd("C:/Users/h.neely/OneDrive - Washington State University (email.wsu.edu)/Spectral responses soil and residue 2022/Data")
+# setwd("C:/Users/h.neely/OneDrive - Washington State University (email.wsu.edu)/Spectral responses soil and residue 2022/Data")
+setwd("/Users/aminnorouzi/Library/CloudStorage/OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/Projects/Soil_Residue_Spectroscopy/Data/10nm_resolution/Raw_Data/")
 
 ## Creating a function read_csv_filename to read all the files stored in Data.in the previous step
 ## skip = 26 is used to skip the first 26 lines in each of the files since they store metadata for each scan
@@ -52,7 +53,7 @@ Residue.median <- Residue.CropMoisture %>%
 ## Smooth median scan
 Crop.names<-unique(Residue.median$Crop)
 Scan.names<-unique(Residue.median$Scan)
-resample.vec<-seq(500, 2450, 5)
+resample.vec<-seq(500, 2450, 10)
 resample.vec.names<-paste0("R", resample.vec)
 
 Residue.median.smooth<-matrix(nrow=(length(Crop.names)*length(Scan.names)), ncol=(length(resample.vec)+4))
@@ -95,8 +96,8 @@ Residue.median.smooth<-Residue.median.smooth[-c(1, 2, 7, 9, 12, 17, 22, 25, 31, 
 Residue.D <- Residue.median.smooth %>%
   group_by(Crop) %>%
   arrange(desc(RWC), .by_group=TRUE) %>%
-  mutate_if(is.numeric, funs(. -first(.))) 
-ungroup
+  mutate_if(is.numeric, funs(. -first(.))) %>% 
+  ungroup()
 
 Residue.D<-Residue.D[rowSums(Residue.D[,5:(RMS.dim[2]-4)])!= 0,]
 Residue.D.dim<-dim(Residue.D)
