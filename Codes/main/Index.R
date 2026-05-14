@@ -4,14 +4,17 @@ library(ggplot2)
 library(viridis)
 library(scales)
 
-path_to_data <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                       'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
-                       'Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
+# path_to_data <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
+#                        'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
+#                        'Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
+# 
+# path_to_plots <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
+#                         'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
+#                         'Ph.D/Projects/Soil_Residue_Spectroscopy/Plots/00/')
 
-path_to_plots <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                        'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
-                        'Ph.D/Projects/Soil_Residue_Spectroscopy/Plots/00/')
+path_to_data <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
 
+path_to_plots <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/Soil_Residue_Spectroscopy/Plots/00/')
 
 residue <- read.csv(paste0(path_to_data, 
                                   "Residue_RWCinterpolated.csv"),
@@ -21,6 +24,19 @@ soil <- read.csv(paste0(path_to_data,
                                "Soil_RWCinterpolated.csv"),
                         header = TRUE, row.names = NULL)
 
+
+
+residue <- residue %>%
+  rename(Type = Crop)
+
+soil <- soil %>%
+  rename(Type = Soil)
+
+residue <- residue %>%
+  rename(Reflect = Reflectance)
+
+soil <- soil %>%
+  rename(Reflect = Reflectance)
 
 residue <- residue[residue$Wvl > 1500, ]
 soil <- soil[soil$Wvl > 1500, ]
@@ -36,71 +52,75 @@ select_columns_range <- function(df, start_col_name, end_col_name) {
 }
 
 residue <- residue %>%
-  dplyr::filter(Wvl >= 1660 | Wvl <= 2330)
-
+  dplyr::filter(Wvl >= 1500 | Wvl <= 2400)
 
 
 res_index <- residue %>%
   spread(Wvl, Reflect) %>%
   mutate(CAI = 2200 / 2000) %>%
   mutate(SINDRI = 2200 / 2000) %>%
-  mutate(NDTI = 2200 / 2000) %>%
-  mutate(R2220 = 2200 / 2000) %>%
-  mutate(R1620 = 2200 / 2000) %>%
-  mutate(RSWIR = 2200 / 2000) %>%
-  mutate(ROLI = 2200 / 2000)
+  mutate(NDTI = 2200 / 2000)
+  # mutate(R2220 = 2200 / 2000) %>%
+  # mutate(R1620 = 2200 / 2000) %>%
+  # mutate(RSWIR = 2200 / 2000) %>%
+  # mutate(ROLI = 2200 / 2000)
 
 
-# res_index$CAI <- (0.5 * (res_index$`2000` + res_index$`2200`) - res_index$`2100`)
-res_index$CAI <- (0.5 * (res_index$`2000` + res_index$`2250`) - res_index$`2090`)
-# res_index$SINDRI <- (res_index$`2200` - res_index$`2260`) / (res_index$`2200` + res_index$`2260`)
-res_index$R2220_2260 <-  rowMeans(select_columns_range(res_index, '2240', '2260'))
-res_index$R2260_2280 <-  rowMeans(select_columns_range(res_index, '2295', '2330'))
-res_index$SINDRI <- (res_index$R2220_2260 - res_index$R2260_2280) / (res_index$R2220_2260 + res_index$R2260_2280)
-# res_index$NDTI <- (res_index$`1660` - res_index$`2330`) / (res_index$`1660` + res_index$`2330`)
-res_index$R1660_1690 <-  rowMeans(select_columns_range(res_index, '1660', '1690'))
-res_index$R2220_2280 <-  rowMeans(select_columns_range(res_index, '2220', '2280'))
-res_index$NDTI <- (res_index$R1660_1690 - res_index$R2220_2280) / (res_index$R1660_1690 + res_index$R2220_2280)
-res_index$R2220 <- res_index$`2250`/res_index$`2000`
-res_index$R1620 <- res_index$`1600`/res_index$`2000`
-res_index$RSWIR <- res_index$`1660`/res_index$`R2260_2280`
-res_index$ROLI <- res_index$`1660`/res_index$R2220_2280
+res_index$R2025_2035 <- rowMeans(select_columns_range(res_index, '2025', '2035'))
+res_index$R2095_2105 <- rowMeans(select_columns_range(res_index, '2095', '2105'))
+res_index$R2245_2255 <- rowMeans(select_columns_range(res_index, '2245', '2255'))
+res_index$CAI <- (0.5 * (res_index$R2025_2035 + res_index$R2245_2255) - res_index$R2095_2105)
 
-desired_column <- c("Sample", "Type", "RWC", "CAI", "SINDRI", "NDTI", "R2220", "R1620", "RSWIR", "ROLI",
-                    "R2220_2260", "R2260_2280", "R1660_1690", "R2220_2280", "2160", "2190", "2180", "2000", "2250", "2090")
+res_index$R2220_2260 <-  rowMeans(select_columns_range(res_index, '2220', '2260'))
+res_index$R2310_2360 <-  rowMeans(select_columns_range(res_index, '2310', '2360'))
+res_index$SINDRI <- 100 * (res_index$R2220_2260 - res_index$R2310_2360) / (res_index$R2220_2260 + res_index$R2310_2360)
+
+res_index$R1600_1680 <-  rowMeans(select_columns_range(res_index, '1600', '1680'))
+res_index$R2160_2340 <-  rowMeans(select_columns_range(res_index, '2160', '2340'))
+res_index$NDTI <- (res_index$R1600_1680 - res_index$R2160_2340) / (res_index$R1600_1680 + res_index$R2160_2340)
+
+# res_index$R2220 <- res_index$`2250`/res_index$R2025_2035
+# res_index$R1620 <- res_index$`1600`/res_index$R2025_2035
+# res_index$RSWIR <- res_index$`1660`/res_index$`R2260_2280`
+# res_index$ROLI <- res_index$`1660`/res_index$R2160_2340
+
+# desired_column <- c("Sample", "Type", "RWC", "CAI", "SINDRI", "NDTI", "R2025_2035", "R2095_2105", "R2245_2255",
+#                     "R2220_2260", "R2310_2360", "R1600_1680", "R2160_2340")
+
+desired_column <- c("Sample", "Type", "RWC", "CAI", "SINDRI", "NDTI")
+
 res_index <- res_index[, desired_column]
 
 write.csv(res_index, file = paste0(path_to_data, "residue_index_df.csv"), row.names = FALSE)
 
 
 soil <- soil %>%
-  dplyr::filter(Wvl >= 1660 | Wvl <= 2330)
+  dplyr::filter(Wvl >= 1500 | Wvl <= 2400)
 
 
 soil_index <- soil %>%
   spread(Wvl, Reflect) %>%
   mutate(CAI = 2200 / 2000) %>%
   mutate(SINDRI = 2200 / 2000) %>%
-  mutate(NDTI = 2200 / 2000)%>%
-  mutate(R2220 = 2200 / 2000)%>%
-  mutate(R1620 = 2200 / 2000)%>%
-  mutate(RSWIR = 2200 / 2000)%>%
-  mutate(ROLI = 2200 / 2000)
+  mutate(NDTI = 2200 / 2000)
+  # mutate(R2220 = 2200 / 2000)%>%
+  # mutate(R1620 = 2200 / 2000)%>%
+  # mutate(RSWIR = 2200 / 2000)%>%
+  # mutate(ROLI = 2200 / 2000)
 
-# soil_index$soil_index <- (0.5 * (soil_index$`2000` + soil_index$`2200`) - soil_index$`2100`)
-soil_index$CAI <- (0.5 * (soil_index$`2160` + soil_index$`2190`) - soil_index$`2180`)
-# soil_index$SINDRI <- (soil_index$`2200` - soil_index$`2260`) / (soil_index$`2200` + soil_index$`2260`)
-soil_index$R2220_2260 <-  rowMeans(select_columns_range(soil_index, '2240', '2260'))
-soil_index$R2260_2280 <-  rowMeans(select_columns_range(soil_index, '2290', '2330'))
-soil_index$SINDRI <- (soil_index$R2220_2260 - soil_index$R2260_2280) / (soil_index$R2220_2260 + soil_index$R2260_2280)
-# soil_index$NDTI <- (soil_index$`1660` - soil_index$`2330`) / (soil_index$`1660` + soil_index$`2330`)
-soil_index$R1660_1690 <-  rowMeans(select_columns_range(soil_index, '1660', '1690'))
-soil_index$R2220_2280 <-  rowMeans(select_columns_range(soil_index, '2220', '2280'))
-soil_index$NDTI <- (soil_index$R1660_1690 - soil_index$R2220_2280) / (soil_index$R1660_1690 + soil_index$R2220_2280)
-soil_index$R2220 <- soil_index$`2250`/soil_index$`2000`
-soil_index$R1620 <- soil_index$`1600`/soil_index$`2000`
-soil_index$RSWIR <- soil_index$`1660`/soil_index$`R2260_2280`
-soil_index$ROLI <- soil_index$`1660`/soil_index$R2220_2280
+soil_index$R2025_2035 <- rowMeans(select_columns_range(soil_index, '2025', '2035'))
+soil_index$R2095_2105 <- rowMeans(select_columns_range(soil_index, '2095', '2105'))
+soil_index$R2245_2255 <- rowMeans(select_columns_range(soil_index, '2245', '2255'))
+soil_index$CAI <- (0.5 * (soil_index$R2025_2035 + soil_index$R2245_2255) - soil_index$R2095_2105)
+
+soil_index$R2220_2260 <-  rowMeans(select_columns_range(soil_index, '2220', '2260'))
+soil_index$R2310_2360 <-  rowMeans(select_columns_range(soil_index, '2310', '2360'))
+soil_index$SINDRI <- 100 * (soil_index$R2220_2260 - soil_index$R2310_2360) / (soil_index$R2220_2260 + soil_index$R2310_2360)
+
+soil_index$R1600_1680 <-  rowMeans(select_columns_range(soil_index, '1600', '1680'))
+soil_index$R2160_2340 <-  rowMeans(select_columns_range(soil_index, '2160', '2340'))
+soil_index$NDTI <- (soil_index$R1600_1680 - soil_index$R2160_2340) / (soil_index$R1600_1680 + soil_index$R2160_2340)
+
 
 soil_index <- soil_index[, desired_column]
 
@@ -229,7 +249,7 @@ library(viridis)
 
 # Reshape the data into a tidy format
 tidy_data <- res_index %>%
-  gather(variable, value, SINDRI, res_index, NDTI)
+  gather(variable, value, SINDRI, CAI, NDTI)
 
 tidy_data$color_group <- ifelse(tidy_data$Sample == "Residue", 
                                 paste(tidy_data$Sample, tidy_data$Type),

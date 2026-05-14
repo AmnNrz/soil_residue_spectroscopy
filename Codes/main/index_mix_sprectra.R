@@ -4,19 +4,14 @@ library(ggplot2)
 library(viridis)
 library(scales)
 
-path_to_data <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                       'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
-                       'Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
-
-path_to_plots <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                        'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
-                        'Ph.D/Projects/Soil_Residue_Spectroscopy/Plots/00/')
-
+path_to_data <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
 
 mixed <- read.csv(paste0(path_to_data, 
                            "mixed_spectra_dry.csv"),
                     header = TRUE, row.names = NULL)
 
+# mixed <- mixed %>%
+#   rename(Reflect = Reflectance)
 
 mixed <- mixed[mixed$Wvl >= 1500, ]
 
@@ -37,34 +32,27 @@ select_columns_range <- function(df, start_col_name, end_col_name) {
 
 
 mix_index <- mixed %>%
-  spread(Wvl, Reflect) %>%
+  spread(Wvl, Reflectance) %>%
   mutate(CAI = 2200 / 2000) %>%
   mutate(SINDRI = 2200 / 2000) %>%
-  mutate(NDTI = 2200 / 2000) %>%
-  mutate(R2220 = 2200 / 2000) %>%
-  mutate(R1620 = 2200 / 2000) %>%
-  mutate(RSWIR = 2200 / 2000) %>%
-  mutate(ROLI = 2200 / 2000)
+  mutate(NDTI = 2200 / 2000)
+  # mutate(R2220 = 2200 / 2000) %>%
+  # mutate(R1620 = 2200 / 2000) %>%
+  # mutate(RSWIR = 2200 / 2000) %>%
+  # mutate(ROLI = 2200 / 2000)
 
+mix_index$R2025_2035 <- rowMeans(select_columns_range(mix_index, '2025', '2035'))
+mix_index$R2095_2105 <- rowMeans(select_columns_range(mix_index, '2095', '2105'))
+mix_index$R2245_2255 <- rowMeans(select_columns_range(mix_index, '2245', '2255'))
+mix_index$CAI <- (0.5 * (mix_index$R2025_2035 + mix_index$R2245_2255) - mix_index$R2095_2105)
 
-#CAI
-mix_index$CAI <- (0.5 * (mix_index$`2030` + mix_index$`2210`) - mix_index$`2100`)
+mix_index$R2220_2260 <-  rowMeans(select_columns_range(mix_index, '2220', '2260'))
+mix_index$R2310_2360 <-  rowMeans(select_columns_range(mix_index, '2310', '2360'))
+mix_index$SINDRI <- 100 * (mix_index$R2220_2260 - mix_index$R2310_2360) / (mix_index$R2220_2260 + mix_index$R2310_2360)
 
-# SINDRI
-mix_index$R2220_2260 <-  rowMeans(select_columns_range(mix_index, '2180', '2230'))
-mix_index$R2260_2280 <-  rowMeans(select_columns_range(mix_index, '2230', '2290'))
-mix_index$SINDRI <- (mix_index$R2220_2260 - mix_index$R2260_2280) / (mix_index$R2220_2260 + mix_index$R2260_2280)
-
-# NDTI
-mix_index$R1660_1690 <-  rowMeans(select_columns_range(mix_index, '1570', '1650'))
-mix_index$R2220_2280 <-  rowMeans(select_columns_range(mix_index, '2110', '2290'))
-mix_index$NDTI <- (mix_index$R1660_1690 - mix_index$R2220_2280) / (mix_index$R1660_1690 + mix_index$R2220_2280)
-
-# Others
-mix_index$R2220 <- mix_index$`2250`/mix_index$`2000`
-mix_index$R1620 <- mix_index$`1600`/mix_index$`2000`
-mix_index$RSWIR <- mix_index$`1660`/mix_index$`R2260_2280`
-mix_index$ROLI <- mix_index$`1660`/mix_index$R2220_2280
+mix_index$R1600_1680 <-  rowMeans(select_columns_range(mix_index, '1600', '1680'))
+mix_index$R2160_2340 <-  rowMeans(select_columns_range(mix_index, '2160', '2340'))
+mix_index$NDTI <- (mix_index$R1600_1680 - mix_index$R2160_2340) / (mix_index$R1600_1680 + mix_index$R2160_2340)
 
 desired_column <- c("Mix", "Crop", "Soil", "Fraction", "CAI", "SINDRI", "NDTI")
 mix_index <- mix_index[, desired_column]

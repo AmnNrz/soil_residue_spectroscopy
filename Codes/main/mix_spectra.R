@@ -2,20 +2,17 @@ library(tidyverse)
 library(dplyr)
 library(ggplot2)
 
-
-path_to_data <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                       'OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/',
-                       'Projects/Soil_Residue_Spectroscopy/Data/10nm_resolution/')
-
-path_to_plots <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                        'OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/',
-                        'Projects/Soil_Residue_Spectroscopy/Plots/10nm_resolution/')
-
-# path_to_data <- paste0('/home/amnnrz/OneDrive - a.norouzikandelati/Ph.D/',
+# path_to_data <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
+#                        'OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/',
 #                        'Projects/Soil_Residue_Spectroscopy/Data/10nm_resolution/')
 # 
-# path_to_plots <- paste0('/home/amnnrz/OneDrive - a.norouzikandelati/Ph.D/',
+# path_to_plots <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
+#                         'OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/',
 #                         'Projects/Soil_Residue_Spectroscopy/Plots/10nm_resolution/')
+
+path_to_data <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
+
+path_to_plots <- paste0('/home/amin-norouzi/OneDrive/Ph.D/Projects/Soil_Residue_Spectroscopy/Plots/00/')
 
 Residue_Median <- read.csv(paste0(path_to_data, 
                                   "Residue.csv"),
@@ -29,11 +26,21 @@ Soil_Median <- read.csv(paste0(path_to_data,
 Soil_Median <- Soil_Median[-c(1, 8)]
 Soil_Median <- dplyr::filter(Soil_Median, Wvl >=500)
 
-Residue_Median <- Residue_Median %>%
-  dplyr::rename(Type = Crop)
 
+Residue_Median$Sample <- "Residue"
+Soil_Median$Sample <- "Soil"
+
+Residue_Median <- Residue_Median %>%
+  rename(Type = Crop)
+# 
 Soil_Median <- Soil_Median %>%
-  dplyr::rename(Type = Soil)
+  rename(Type = Soil)
+
+# Residue_Median <- Residue_Median %>%
+#   rename(Reflect = Reflectance)
+# 
+# Soil_Median <- Soil_Median %>%
+#   rename(Reflect = Reflectance)
 
 
 Residue_Median <- Residue_Median %>%
@@ -45,17 +52,17 @@ Soil_Median <- Soil_Median %>%
   filter(RWC == min(RWC))
 
 
-Residue_Median <- Residue_Median %>%
-  mutate(Sample = recode(Sample, "Crop Residue" = "Residue"))
+# Residue_Median <- Residue_Median %>%
+#   mutate(Sample = recode(Sample, "Crop Residue" = "Residue"))
 
 Residue <- Residue_Median
 Soil <- Soil_Median
 
 res_wide <- Residue %>%
-  pivot_wider(names_from = Wvl, values_from = Reflect) 
+  pivot_wider(names_from = Wvl, values_from = Reflectance) 
 
 soil_wide <- Soil %>%
-  pivot_wider(names_from = Wvl, values_from = Reflect) 
+  pivot_wider(names_from = Wvl, values_from = Reflectance) 
 
 ###############################################################
 ###############################################################
@@ -186,21 +193,160 @@ for (crp in crops){
 # mixed_dataframe_firstCols <- mixed_dataframe %>%  dplyr::select("Soil":6)
 # mixed_dataframe <- cbind(mixed_dataframe_firstCols, snv_transformed_matrix)
 
-# Update path
-path_to_data_new <- paste0('/Users/aminnorouzi/Library/CloudStorage/',
-                            'OneDrive-WashingtonStateUniversity(email.wsu.edu)/',
-                            'Ph.D/Projects/Soil_Residue_Spectroscopy/Data/00/')
-
-
 mix_long <- mixed_dataframe %>%
   pivot_longer(
     cols = `500`:`2450`,      # all spectral bands
     names_to = "Wvl",         # name of the new wavelength column
-    values_to = "Reflect"     # name of the new reflectance value column
+    values_to = "Reflectance"     # name of the new reflectance value column
   )
 
-write.csv(mix_long, paste0(path_to_data_new, "mixed_spectra_dry.csv"), row.names = FALSE)
+write.csv(mix_long, paste0(path_to_data, "mixed_spectra_dry.csv"), row.names = FALSE)
 
+
+
+
+#################################################################
+###############   Crop Spectral reflectance plot    ##################
+#################################################################
+library(dplyr)
+library(ggplot2)
+
+# 1) Keep only the requested crops, pick min(RWC) within each crop,
+#    and rename "Wheat Norwest Duet" to "Wheat"
+df_plot <- Residue_Median %>%
+  filter(Type %in% c(
+    "Canola",
+    "Garbanzo Beans",
+    "Peas",
+    "Wheat Norwest Duet",
+    "Weathered Canola",
+    "Weathered Wheat"
+  )) %>%
+  group_by(Type) %>%
+  filter(RWC == min(RWC, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(
+    Type = recode(Type, "Wheat Norwest Duet" = "Wheat")
+  )
+
+# Optional: set crop order in legend
+df_plot <- df_plot %>%
+  mutate(Type = factor(
+    Type,
+    levels = c(
+      "Canola",
+      "Garbanzo Beans",
+      "Peas",
+      "Wheat",
+      "Weathered Canola",
+      "Weathered Wheat"
+    )
+  ))
+
+# 2) Make the plot
+p <- ggplot(df_plot, aes(x = Wvl, y = Reflectance, color = Type)) +
+  geom_line(linewidth = 1) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Reflectance (%)",
+    color = NULL
+  ) +
+  scale_x_continuous(
+    limits = c(min(df_plot$Wvl, na.rm = TRUE), 2500),
+    breaks = seq(500, 2500, by = 500),
+    minor_breaks = seq(500, 2500, by = 100)
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "right",
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    axis.line = element_line(color = "black"),
+    axis.ticks = element_line(color = "black"),
+    panel.grid.major.x = element_line(color = "grey55", linewidth = 0.35),
+    panel.grid.minor.x = element_line(color = "grey75", linewidth = 0.25),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank()
+  )
+
+print(p)
+
+# 3) Save plot
+ggsave(
+  filename = paste0(path_to_plots, "Reflectance/fig_crop_dry_reflect.png"),  # <-- change this
+  plot = p,
+  width = 10,   # <-- change this
+  height = 4,   # <-- change this
+  dpi = 300
+)
+
+
+
+#################################################################
+###############   Soil Spectral reflectance plot    ##################
+#################################################################
+library(dplyr)
+library(ggplot2)
+
+# 1) Keep only the requested crops, pick min(RWC) within each crop,
+#    and rename "Wheat Norwest Duet" to "Wheat"
+df_plot <- Soil_Median %>%
+  group_by(Type) %>%
+  filter(RWC == min(RWC, na.rm = TRUE)) %>%
+  ungroup()
+
+# # Optional: set crop order in legend
+# df_plot <- df_plot %>%
+#   mutate(Crop = factor(
+#     Crop,
+#     levels = c(
+#       "Canola",
+#       "Garbanzo Beans",
+#       "Peas",
+#       "Wheat",
+#       "Weathered Canola",
+#       "Weathered Wheat"
+#     )
+#   ))
+
+# 2) Make the plot
+p <- ggplot(df_plot, aes(x = Wvl, y = Reflectance, color = Type)) +
+  geom_line(linewidth = 1) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Reflectance (%)",
+    color = NULL
+  ) +
+  scale_x_continuous(
+    limits = c(min(df_plot$Wvl, na.rm = TRUE), 2500),
+    breaks = seq(500, 2500, by = 500),
+    minor_breaks = seq(500, 2500, by = 100)
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "right",
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    axis.line = element_line(color = "black"),
+    axis.ticks = element_line(color = "black"),
+    panel.grid.major.x = element_line(color = "grey55", linewidth = 0.35),
+    panel.grid.minor.x = element_line(color = "grey75", linewidth = 0.25),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank()
+  )
+
+print(p)
+
+# 3) Save plot
+ggsave(
+  filename = paste0(path_to_plots, "Reflectance/fig_soil_dry_reflect.png"),  # <-- change this
+  plot = p,
+  width = 10,   # <-- change this
+  height = 4,   # <-- change this
+  dpi = 300
+)
 
 
 
